@@ -39,6 +39,6 @@ def test_date_output_format():
     expected = record['date'] + ' ' + record['time']
 
     sess = Session(**record)
-    output = sess._format_dt_for_output()
+    output = sess._format_dt_for_output(sess.dt)
 
     assert output == expected

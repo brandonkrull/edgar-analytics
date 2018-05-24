@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 
@@ -36,13 +35,15 @@ class Session(object):
 
     def __init__(self, ip, date, time, count=0, length=0, end=0):
         self.ip = ip
-        self.length = length
-        self.count = count
-        self.end = end
+
         try:
             self.dt = parse(date + ' ' + time)
         except ValueError:
             raise ValueError('Invalid or unknown date/time string')
+
+        self.length = length
+        self.count = count
+        self.end = end
 
     def __repr__(self):
         return 'dt: {}, count: {}, length:{}'.format(self.dt, self.count,
@@ -50,17 +51,16 @@ class Session(object):
 
     def close(self, output_handle):
         self.end = self.dt + relativedelta(seconds=self.length)
-        dt_open = self.format_dt_for_output(self.dt)
-        dt_close = self.format_dt_for_output(self.end)
+        dt_open = self._format_dt_for_output(self.dt)
+        dt_close = self._format_dt_for_output(self.end)
 
         output_line = '{},{},{},{},{}\n'.format(self.ip, dt_open, dt_close,
                                                 self.length, self.count)
         print output_line
         output_handle.write(output_line)
 
-
-    def _format_dt_for_output(self):
-        return ' '.join(self.dt.isoformat().split('T'))
+    def _format_dt_for_output(self, dt):
+        return ' '.join(dt.isoformat().split('T'))
 
 
 def get_value_indices(keys):
