@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
-from os import remove
-from processor import get_inactivity_value, get_raw_log_data, process_logs
+from processor import get_raw_log_data, Processor
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -13,12 +12,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     raw_data = get_raw_log_data(args.log)
-    inactivity_value = get_inactivity_value(args.inactivity_period_file)
-
-    try:
-        remove(args.output)
-    except OSError:
-        pass
-
-    with open(args.output, 'a') as output_file:
-        process_logs(raw_data, inactivity_value, output_file)
+    proc = Processor(args.inactivity_period_file, args.output)
+    proc.process_logs(raw_data)

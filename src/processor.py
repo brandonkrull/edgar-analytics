@@ -1,5 +1,6 @@
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
+from os import remove
 
 
 class User(object):
@@ -62,14 +63,78 @@ class Session(object):
         return ' '.join(dt.isoformat().split('T'))
 
 
-def get_inactivity_value(inactivity_period_file):
-    with open(inactivity_period_file) as f:
-        try:
-            inactivity_period = int(f.readline())
-        except ValueError:
-            raise ValueError('invalid inactivity value')
+class Processor(object):
+    def __init__(self, inactivity_time_file, output_file_name):
+        self.inactivity_time = self.get_inactivity_value(inactivity_time_file)
+        self.output_file_name = output_file_name
 
-    return inactivity_period
+        try:
+            remove(output_file_name)
+        except OSError:
+            pass
+
+    @staticmethod
+    def get_inactivity_value(inactivity_period_file):
+        try:
+            with open(inactivity_period_file) as f:
+                try:
+                    inactivity_period = int(f.readline())
+                except ValueError:
+                    raise ValueError('invalid inactivity value')
+        except IOError:
+            raise IOError('No such inactivity file {}'.format(inactivity_period_file))
+
+        return inactivity_period
+
+    def process_logs(self, raw_data):
+        open_sessions = []
+        prev = parse('0366-12-24 23:59:59')
+
+        with open(self.output_file_name, 'a') as output_file:
+            for record in raw_data:
+                user = User(record['ip'])
+                now = parse(record['date'] + ' ' + record['time'])
+                elapsed = relativedelta(now, prev).seconds
+
+                if user not in open_sessions:
+                    user.sess = Session(count=1, length=0, **record)
+                    open_sessions.append(user)
+                else:
+                    sess = open_sessions[open_sessions.index(user)].sess
+                    length = relativedelta(now, sess.dt).seconds - sess.length
+
+                    print "Length of existing session: {}".format(length)
+                    if length > self.inactivity_time:
+                        sess.close(output_file)
+                        open_sessions.remove(user)
+                    else:
+                        sess.dt = now
+                        sess.count += 1
+
+                if elapsed > 0:
+                    for u in open_sessions:
+                        if u == user:
+                            continue
+
+                        length = relativedelta(
+                            now, u.sess.dt).seconds - u.sess.length
+
+                        if length > self.inactivity_time:
+                            u.sess.length = length
+                            sess.close(output_file)
+                            open_sessions.remove(u)
+
+                prev = now
+            """
+            Once the end of the log is reached, close all remaining open sessions
+            """
+            for u in open_sessions:
+                length = relativedelta(now, u.sess.dt).seconds - u.sess.length
+
+                u.sess.length = length
+                u.sess.close(output_file)
+                open_sessions.remove(u)
+
 
 def get_value_indices(keys):
     """
@@ -82,53 +147,17 @@ def get_value_indices(keys):
 
 def get_raw_log_data(fname):
     data = []
-    with open(fname) as f:
-        keys = f.readline().strip().split(',')
-        indices = get_value_indices(keys)
+    try:
+        with open(fname) as f:
+            keys = f.readline().strip().split(',')
+            indices = get_value_indices(keys)
 
-        for line in f.readlines():
-            list_of_info = line.strip().split(',')
-            data.append({k: list_of_info[v] for k, v in indices.iteritems()})
+            for line in f.readlines():
+                list_of_info = line.strip().split(',')
+                data.append(
+                    {k: list_of_info[v]
+                     for k, v in indices.iteritems()})
+    except OSError:
+        raise OSError('No file {} found'.format(fname))
 
     return data
-
-
-def process_logs(raw_data, inactivity_time, output_handle):
-    open_sessions = []
-    for record in raw_data:
-        user = User(record['ip'])
-        now = parse(record['date'] + ' ' + record['time'])
-
-        if user not in open_sessions:
-            user.sess = Session(count=1, length=0, **record)
-            open_sessions.append(user)
-        else:
-            sess = open_sessions[open_sessions.index(user)].sess
-            length = relativedelta(now, sess.dt).seconds - sess.length
-
-            print "Length of existing session: {}".format(length)
-            if length > inactivity_time:
-                sess.close(output_handle)
-                open_sessions.remove(user)
-            else:
-                sess.dt = now
-                sess.count += 1
-
-        for u in open_sessions:
-            if u == user: continue
-
-            length = relativedelta(now, u.sess.dt).seconds - u.sess.length
-
-            if length > inactivity_time:
-                u.sess.length = length
-                sess.close(output_handle)
-                open_sessions.remove(u)
-    """
-    Once the end of the log is reached, close all remaining open sessions
-    """
-    for u in open_sessions:
-        length = relativedelta(now, u.sess.dt).seconds - u.sess.length
-
-        u.sess.length = length
-        u.sess.close(output_handle)
-        open_sessions.remove(u)
