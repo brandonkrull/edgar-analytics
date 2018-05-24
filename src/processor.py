@@ -121,7 +121,7 @@ class Processor(object):
 
                         if length > self.inactivity_time:
                             u.sess.length = length
-                            sess.close(output_file)
+                            u.sess.close(output_file)
                             open_sessions.remove(u)
 
                 prev = now
