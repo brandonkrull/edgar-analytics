@@ -20,4 +20,4 @@ if __name__ == '__main__':
     inactivity_value = get_inactivity_value(args.inactivity_period_file)
 
     with open(args.output, 'a') as output_file:
-        process_logs(raw_data, inactivity_period, output_file)
+        process_logs(raw_data, inactivity_value, output_file)
