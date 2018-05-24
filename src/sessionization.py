@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from processor import get_raw_log_data, process_logs
+from processor import get_inactivity_value, get_raw_log_data, process_logs
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -17,11 +17,7 @@ if __name__ == '__main__':
     print args.output
     print args.inactivity_period_file
 
-    with open(args.inactivity_period_file) as f:
-        try:
-            inactivity_period = int(f.readline())
-        except ValueError:
-            raise ValueError('invalid inactivity value')
+    inactivity_value = get_inactivity_value(args.inactivity_period_file)
 
     with open(args.output, 'a') as output_file:
         process_logs(raw_data, inactivity_period, output_file)

@@ -56,12 +56,20 @@ class Session(object):
 
         output_line = '{},{},{},{},{}\n'.format(self.ip, dt_open, dt_close,
                                                 self.length, self.count)
-        print output_line
         output_handle.write(output_line)
 
     def _format_dt_for_output(self, dt):
         return ' '.join(dt.isoformat().split('T'))
 
+
+def get_inactivity_value(inactivity_period_file):
+    with open(inactivity_period_file) as f:
+        try:
+            inactivity_period = int(f.readline())
+        except ValueError:
+            raise ValueError('invalid inactivity value')
+
+    return inactivity_period
 
 def get_value_indices(keys):
     """
@@ -89,14 +97,11 @@ def process_logs(raw_data, inactivity_time, output_handle):
     open_sessions = []
     for record in raw_data:
         user = User(record['ip'])
-        print user
         now = parse(record['date'] + ' ' + record['time'])
 
         if user not in open_sessions:
             user.sess = Session(count=1, length=0, **record)
             open_sessions.append(user)
-            #             print 'adding new user: {}'.format(user.ip)
-            #             print user.session
         else:
             sess = open_sessions[open_sessions.index(user)].sess
             length = relativedelta(now, sess.dt).seconds - sess.length
