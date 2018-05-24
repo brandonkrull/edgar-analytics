@@ -1,8 +1,11 @@
 from src.processor import Processor, get_value_indices, get_raw_log_data
 
 
+TEST_BASE = 'tests_py/'
+
+
 def test_inactivity_value():
-    inactivity_file_name = 'tests/input/inactivity_period.txt'
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period.txt'
     output_file = ''
 
     try:
@@ -14,7 +17,7 @@ def test_inactivity_value():
 
 
 def test_inactivity_value_bad_file():
-    inactivity_file_name = 'tests/input/inactivity_period_verybad.txt'
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period_verybad.txt'
     output_file = ''
 
     try:
@@ -24,7 +27,7 @@ def test_inactivity_value_bad_file():
 
 
 def test_inactivity_value_bad():
-    inactivity_file_name = 'tests/input/inactivity_period_bad.txt'
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period_bad.txt'
     output_file = ''
 
     try:
@@ -34,7 +37,7 @@ def test_inactivity_value_bad():
 
 
 def test_make_raw_data_no_file():
-    fname = 'tests/input/logger.csv'
+    fname = TEST_BASE + 'input/logger.csv'
 
     try:
         get_raw_log_data(fname)
@@ -49,7 +52,7 @@ def test_make_raw_data():
         'time': '00:00:00'
     }
 
-    fname = 'tests/input/log.csv'
+    fname = TEST_BASE + 'input/log.csv'
 
     data = get_raw_log_data(fname)
 
@@ -70,9 +73,9 @@ def test_index_constructor():
 
 
 def test_output():
-    output_file_name = 'tests/output/sessionization.txt'
-    raw_data = get_raw_log_data('tests/input/log.csv')
-    inactivity_file_name = 'tests/input/inactivity_period.txt'
+    output_file_name = TEST_BASE + 'output/sessionization.txt'
+    raw_data = get_raw_log_data(TEST_BASE + 'input/log.csv')
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period.txt'
 
     proc = Processor(inactivity_file_name, output_file_name)
     proc.process_logs(raw_data)
@@ -80,7 +83,7 @@ def test_output():
     with open(output_file_name) as f:
         results = f.readlines()
 
-    with open('tests/output/ref.txt') as f:
+    with open(TEST_BASE + 'output/ref.txt') as f:
         expected = f.readlines()
 
     assert len(results) == len(expected), 'Incorrect number of result items'
