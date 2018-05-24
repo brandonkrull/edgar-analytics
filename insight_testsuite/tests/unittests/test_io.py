@@ -1,24 +1,44 @@
-from src.processor import get_inactivity_value, get_value_indices, \
-    get_raw_log_data, process_logs
+from src.processor import Processor, get_value_indices, get_raw_log_data
 
 
 def test_inactivity_value():
-    fname = 'tests/input/inactivity_period.txt'
+    inactivity_file_name = 'tests/input/inactivity_period.txt'
+    output_file = ''
 
     try:
-        inactivity_period = get_inactivity_value(fname)
+        proc = Processor(inactivity_file_name, output_file)
     except ValueError:
         assert False
     else:
-        assert inactivity_period == 2
+        assert proc.inactivity_time == 2
+
+
+def test_inactivity_value_bad_file():
+    inactivity_file_name = 'tests/input/inactivity_period_verybad.txt'
+    output_file = ''
+
+    try:
+        Processor(inactivity_file_name, output_file)
+    except IOError:
+        assert True
 
 
 def test_inactivity_value_bad():
-    fname = 'tests/input/inactivity_period_bad.txt'
+    inactivity_file_name = 'tests/input/inactivity_period_bad.txt'
+    output_file = ''
 
     try:
-        inactivity_period = get_inactivity_value(fname)
+        Processor(inactivity_file_name, output_file)
     except ValueError:
+        assert True
+
+
+def test_make_raw_data_no_file():
+    fname = 'tests/input/logger.csv'
+
+    try:
+        get_raw_log_data(fname)
+    except IOError:
         assert True
 
 
@@ -50,18 +70,18 @@ def test_index_constructor():
 
 
 def test_output():
-    output_file = 'tests/output/sessionization.txt'
+    output_file_name = 'tests/output/sessionization.txt'
     raw_data = get_raw_log_data('tests/input/log.csv')
-    inactivity_period = 'tests/input/inactivity_period.txt'
+    inactivity_file_name = 'tests/input/inactivity_period.txt'
+
+    proc = Processor(inactivity_file_name, output_file_name)
+    proc.process_logs(raw_data)
+
+    with open(output_file_name) as f:
+        results = f.readlines()
 
     with open('tests/output/ref.txt') as f:
         expected = f.readlines()
-
-    with open(output_file, 'a') as f:
-        process_logs(raw_data, inactivity_period, f)
-
-    with open(output_file) as f:
-        results = f.readlines()
 
     assert len(results) == len(expected), 'Incorrect number of result items'
 
