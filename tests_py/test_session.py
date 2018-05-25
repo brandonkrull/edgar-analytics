@@ -9,8 +9,9 @@ badtime = {'ip': '123.123.123.1', 'date': '0366-12-24', 'time': 'z3:59:59'}
 
 def test_session_init_bad_date():
     try:
-        sess = Session(**baddate)
-    except ValueError as exc:
+        now = parse(baddate['date'] + ' ' + baddate['time'])
+        sess = Session(start=now)
+    except ValueError:
         assert True
     else:
         assert False
@@ -18,27 +19,28 @@ def test_session_init_bad_date():
 
 def test_session_init_bad_time():
     try:
-        sess = Session(**badtime)
-    except ValueError as exc:
+        now = parse(badtime['date'] + ' ' + badtime['time'])
+        sess = Session(start=now)
+    except ValueError:
         assert True
     else:
         assert False
 
 
 def test_session_init():
-    sess = Session(**record)
+    now = parse(record['date'] + ' ' + record['time'])
+    sess = Session(start=now, sleep=0)
 
-    assert sess.ip == '123.123.123.1'
-    assert sess.dt == parse(record['date'] + ' ' + record['time'])
-    assert sess.length == 0
-    assert sess.count == 0
-    assert sess.end == 0
+    assert sess.start == now
+    assert sess.end == now
+    assert sess.count == 1
 
 
 def test_date_output_format():
+    now = parse(record['date'] + ' ' + record['time'])
     expected = record['date'] + ' ' + record['time']
 
-    sess = Session(**record)
-    output = sess._format_dt_for_output(sess.dt)
+    sess = Session(start=now, sleep=0)
+    output = sess._format_dt_for_output(sess.start)
 
     assert output == expected

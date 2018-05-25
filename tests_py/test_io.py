@@ -47,7 +47,7 @@ def test_make_raw_data_no_file():
 
 def test_make_raw_data():
     expected = {
-        'ip': '107.23.85.jfd',
+        'ip': '101.81.133.jja',
         'date': '2017-06-30',
         'time': '00:00:00'
     }

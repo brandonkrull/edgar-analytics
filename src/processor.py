@@ -1,3 +1,4 @@
+from collections import deque
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 from os import remove
@@ -34,33 +35,45 @@ class Session(object):
     are the necessary attrs for keeping track of a User's activity.
     """
 
-    def __init__(self, ip, date, time, count=0, length=0, end=0):
-        self.ip = ip
-
-        try:
-            self.dt = parse(date + ' ' + time)
-        except ValueError:
-            raise ValueError('Invalid or unknown date/time string')
-
-        self.length = length
+    def __init__(self, start, sleep, count=1):
+        self.start = start
+        self.end = start
+        self.updated = None
+        self.sleep = sleep
         self.count = count
-        self.end = end
 
-    def __repr__(self):
-        return 'dt: {}, count: {}, length:{}'.format(self.dt, self.count,
-                                                     self.length)
+    def __str__(self):
+        return 'Start: {}, Updated: {}, End: {}, Count: {}'.format(
+            self.start, self.updated, self.end, self.count)
 
-    def close(self, output_handle):
-        self.end = self.dt + relativedelta(seconds=self.length)
-        dt_open = self._format_dt_for_output(self.dt)
-        dt_close = self._format_dt_for_output(self.end)
+    def close(self, ip, output_handle):
+        length = relativedelta(self.end, self.start).seconds - self.sleep
+        dt_open = self._format_dt_for_output(self.start)
+        dt_close = self._format_dt_for_output(self.end, end=True)
 
-        output_line = '{},{},{},{},{}\n'.format(self.ip, dt_open, dt_close,
-                                                self.length, self.count)
+        output_line = '{},{},{},{},{}\n'.format(ip, dt_open, dt_close, length,
+                                                self.count)
+        # print 'Closing ' + output_line
         output_handle.write(output_line)
 
-    def _format_dt_for_output(self, dt):
-        return ' '.join(dt.isoformat().split('T'))
+    def _format_dt_for_output(self, dt, end=False):
+
+        if end:
+            out = ' '.join((dt + relativedelta(
+                seconds=-self.sleep-1)).isoformat().split('T'))
+        else:
+            out = ' '.join(dt.isoformat().split('T'))
+
+        return out
+
+    def _compute_session_elapsed(self, now):
+        """ Returns integer number of seconds """
+        if self.updated:
+            elapsed = relativedelta(now, self.updated).seconds
+        else:
+            elapsed = relativedelta(now, self.start).seconds
+
+        return elapsed
 
 
 class Processor(object):
@@ -82,58 +95,117 @@ class Processor(object):
                 except ValueError:
                     raise ValueError('invalid inactivity value')
         except IOError:
-            raise IOError('No such inactivity file {}'.format(inactivity_period_file))
+            raise IOError(
+                'No such inactivity file {}'.format(inactivity_period_file))
 
         return inactivity_period
 
+    @staticmethod
+    def _get_session_from_deque(user, open_sessions):
+        for u in open_sessions:
+            if not u.ip == user.ip:
+                continue
+            else:
+                sess = u.sess
+                break
+
+        return sess
+
     def process_logs(self, raw_data):
-        open_sessions = []
-        prev = parse('0366-12-24 23:59:59')
+        open_sessions = deque()
+        prev = parse('0366-12-25 00:00:00')
 
         with open(self.output_file_name, 'a') as output_file:
             for record in raw_data:
+                # print '----New Record----'
                 user = User(record['ip'])
                 now = parse(record['date'] + ' ' + record['time'])
-                elapsed = relativedelta(now, prev).seconds
+                # print "It is now {}".format(now)
 
+                # deal with current user and whether or not they have an open session
                 if user not in open_sessions:
-                    user.sess = Session(count=1, length=0, **record)
+                    # print 'Adding user {} to open_sessions'.format(user.ip)
+                    user.sess = Session(start=now, sleep=self.inactivity_time)
                     open_sessions.append(user)
                 else:
-                    sess = open_sessions[open_sessions.index(user)].sess
-                    length = relativedelta(now, sess.dt).seconds - sess.length
+                    sess = self._get_session_from_deque(user, open_sessions)
 
-                    print "Length of existing session: {}".format(length)
-                    if length > self.inactivity_time:
-                        sess.close(output_file)
+                    elapsed = sess._compute_session_elapsed(now)
+                    if elapsed > self.inactivity_time:
+                        # the amount of time this session has elapsed means
+                        # the previously opened session should be closed
+                        # and a new session started
+
+                        # print 'User {} had open session, but it should be closed and replaced'.format(user.ip)
+                        sess.end = now
+                        sess.close(user.ip, output_file)
                         open_sessions.remove(user)
+
+                        sess = Session(start=now, sleep=self.inactivity_time)
                     else:
-                        sess.dt = now
+                        sess.updated = now
                         sess.count += 1
 
-                if elapsed > 0:
-                    for u in open_sessions:
-                        if u == user:
-                            continue
+                        # print 'User: {} has been updated to {}'.format(user.ip, sess)
 
-                        length = relativedelta(
-                            now, u.sess.dt).seconds - u.sess.length
+                # if time has passed, deal with all remaining open sessions
+                clock_elapsed = relativedelta(now, prev).seconds
+                # print "time elapsed: {}".format(clock_elapsed)
+                if clock_elapsed > 0:
+                    number_of_open_sess = len(open_sessions)
+                    # print "Checking {} other open sessions".format(number_of_open_sess)
 
-                        if length > self.inactivity_time:
-                            u.sess.length = length
-                            u.sess.close(output_file)
-                            open_sessions.remove(u)
+                    for i in range(number_of_open_sess):
+                        u = open_sessions.popleft()
+                        u.sess.end = now
+                        start_time = u.sess.start
+
+                        elapsed = u.sess._compute_session_elapsed(now)
+                        # print u.ip + ' ' + str(u.sess)
+
+                        # print 'elapsed: {}, sleep: {}'.format(elapsed, self.inactivity_time)
+                        if elapsed > self.inactivity_time:
+                            # print 'Closing {}'.format(u.ip)
+                            u.sess.end = now
+                            u.sess.close(u.ip, output_file)
+                        else:
+                            open_sessions.append(u)
+
+                        # all subsequent entries should have start times
+                        # that are later and need not be iterated through
+                        # so simply rotate my deck to put the oldest at the top
+                        if relativedelta(now, start_time).seconds < self.inactivity_time:
+                            open_sessions.rotate(number_of_open_sess - i + 1)
+                            break
 
                 prev = now
-            """
-            Once the end of the log is reached, close all remaining open sessions
-            """
-            for u in open_sessions:
-                length = relativedelta(now, u.sess.dt).seconds - u.sess.length
 
-                u.sess.length = length
-                u.sess.close(output_file)
-                open_sessions.remove(u)
+                # print '\n'
+            else:
+                # print 'File closed, proceeding to close remaining sessions'
+                # print 'Now is {}'.format(now)
+                # print open_sessions
+
+                """
+                Once end of the log is reached, close all remaining open sessions
+                """
+
+                while open_sessions:
+                    u = open_sessions.popleft()
+                    # print u.ip + ' ' + str(u.sess)
+
+                    elapsed = u.sess._compute_session_elapsed(now)
+                    # print u.ip + ' elapsed {} '.format(elapsed) + str(u.sess)
+                    if u.sess.start == now:
+                        u.sess.end = now
+                    elif u.sess.updated:
+                        u.sess.end = u.sess.updated
+                    else:
+                        u.sess.end = u.sess.start
+
+                    u.sess.end += relativedelta(seconds=self.inactivity_time+1)
+
+                    u.sess.close(u.ip, output_file)
 
 
 def get_value_indices(keys):
