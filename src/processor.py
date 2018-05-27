@@ -11,7 +11,13 @@ class User(object):
     A User's session depends on whether the User already has an active session
     or not.
 
-    __repr__ is defined explicitly in order to check of a User is 'in' a list of Users
+    attrs:
+        self.ip: str       | required
+        self.sess: Session | default=None
+
+    methods:
+        __repr__ is defined explicitly in order to check of a User is 'in'
+    a deque of Users
     """
 
     def __init__(self, ip, session=None):
@@ -31,14 +37,23 @@ class User(object):
 
 class Session(object):
     """
-    Session class that is attached to a User. A Session's attributes
-    are the necessary attrs for keeping track of a User's activity.
+    Session class that defines all possible states and is attached to a User.
+
+    attrs:
+        self.start: datetime   | start time, never to be updated
+        self.updated: datetime | None, until updated, used to check lifetime
+        self.end: datetime     | init to start, updated upon Session close
+
+    methods:
+        close(ip: str, output_handle: openfile handle 'a') | closes a session
+        _format_dt_for_output(dt: datetime) | returns a datetime formatted for output
+        _compute_session_elapsed(now: datetime) | computes elapsed time from start to now
     """
 
     def __init__(self, start, sleep, count=1):
         self.start = start
-        self.end = start
         self.updated = None
+        self.end = start
         self.sleep = sleep
         self.count = count
 
@@ -47,20 +62,32 @@ class Session(object):
             self.start, self.updated, self.end, self.count)
 
     def close(self, ip, output_handle):
+        """
+        Closing a session entails three things:
+        1. Computing the length of the session
+        2. Formatting the start and end of sessions appropriately
+        3. Appending the user's session info to the output file
+        """
         length = relativedelta(self.end, self.start).seconds - self.sleep
         dt_open = self._format_dt_for_output(self.start)
         dt_close = self._format_dt_for_output(self.end, end=True)
 
         output_line = '{},{},{},{},{}\n'.format(ip, dt_open, dt_close, length,
                                                 self.count)
-        # print 'Closing ' + output_line
         output_handle.write(output_line)
 
     def _format_dt_for_output(self, dt, end=False):
+        """
+        Take a datetime.datetime object and convert to str
+        in the appropriate format for output
+
+        Note: if end, we need to take away (sleep-1) to account
+        for the inclusive nature of the session length definition
+        """
 
         if end:
             out = ' '.join((dt + relativedelta(
-                seconds=-self.sleep-1)).isoformat().split('T'))
+                seconds=-self.sleep - 1)).isoformat().split('T'))
         else:
             out = ' '.join(dt.isoformat().split('T'))
 
@@ -77,6 +104,19 @@ class Session(object):
 
 
 class Processor(object):
+    """
+    Processor class is the main workhorse class for log processing
+
+    attrs:
+        inactivity_time: int | the amount of time until which a Session should be deemed closed
+        output_file_name: str | name of file to append results to
+
+    methods:
+        get_inactivity_value(inactivity_period_file: str) | reads from file the sleep time
+        _get_session_from_deque(user, deque) | find a user in deque
+        process_logs(raw_data: list of dicts)
+    """
+
     def __init__(self, inactivity_time_file, output_file_name):
         self.inactivity_time = self.get_inactivity_value(inactivity_time_file)
         self.output_file_name = output_file_name
@@ -101,8 +141,8 @@ class Processor(object):
         return inactivity_period
 
     @staticmethod
-    def _get_session_from_deque(user, open_sessions):
-        for u in open_sessions:
+    def _get_session_from_deque(user, deque):
+        for u in deque:
             if not u.ip == user.ip:
                 continue
             else:
