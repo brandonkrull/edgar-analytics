@@ -67,7 +67,7 @@ function compare_outputs {
     NUM_OUTPUT_FILES_PASSED=$(($NUM_OUTPUT_FILES_PASSED+1))
   else
     echo -e "[${color_red}FAIL${color_norm}]: ${test_folder}"
-    diff ${PROJECT_ANSWER_PATH1} ${TEST_ANSWER_PATH1}
+    sdiff ${PROJECT_ANSWER_PATH1} ${TEST_ANSWER_PATH1}
   fi
 
   if [ "${NUM_OUTPUT_FILES_PASSED}" -eq "1" ]; then
