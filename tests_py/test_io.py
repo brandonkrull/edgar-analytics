@@ -16,8 +16,9 @@ def test_inactivity_value():
         assert proc.inactivity_time == 2
 
 
-def test_inactivity_value_bad_file():
-    inactivity_file_name = TEST_BASE + 'input/inactivity_period_verybad.txt'
+def test_inactivity_value_no_file():
+    # this file does not exist
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period_bad_file.txt'
     output_file = ''
 
     try:
@@ -27,7 +28,8 @@ def test_inactivity_value_bad_file():
 
 
 def test_inactivity_value_bad():
-    inactivity_file_name = TEST_BASE + 'input/inactivity_period_bad.txt'
+    # this file has a non-numeric value
+    inactivity_file_name = TEST_BASE + 'input/inactivity_period_bad_value.txt'
     output_file = ''
 
     try:
