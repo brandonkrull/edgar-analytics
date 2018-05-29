@@ -71,10 +71,22 @@ checking of all other open Sessions to see if any should be closed.
 Once the end of the file is reached, all open Sessions are updated and closed.
 
 ## Program Performance
-Running the log processing program on an 0.5M line CSV file (~56Mb) takes
-approximately 40 seconds, with a majority of the time spent on []. The timings
-were performed on a Mid 2015 MacBook Pro with a 2.8GHz Intel Core i7 and 16gb
-DDR3 memory.
+Single-threaded timings were performed on a Mid 2015 MacBook Pro with a 2.8GHz
+Intel Core i7 and 16gb DDR3 memory. Running the log processing program on an
+0.5M line CSV file (~56Mb) takes approximately 40 seconds, with a majority of
+the time spent on checking if Sessions already exist in the deque. This could be
+improved with the use of a hashtable with significantly faster and lookup. After
+this, the next most expensive operations are converting the date and time
+strings to datetime objects for use in computing elapsed times, see Table below.
+
+| ncalls  |tottime  |percall | cumtime  |percall| filename:lineno(function)
+| --------| --------| ------|- | -| - |
+| 137250783  | 20.356 |   0.000 |  20.356  |  0.000 |processor.py:33(__eq__)  
+|     95057  |  0.136 |   0.000 |  13.888  |  0.000 |parser.py:1070(parse)  
+|     95057  |  0.789 |   0.000 |  13.752  |  0.000 |parser.py:489(parse)  
+|     26680  |  7.881 |   0.000 |  13.579  |  0.001 |{method 'remove' of 'collections.deque' objects}  
+|     95057  |  1.785 |   0.000 |  11.122  |  0.000 |parser.py:622(_parse)  
+
 
 Left and right pop/append from a python deque is _O_(1) and is preferable to
 internal list searches which scale as _O_(_N_), where _N_ is the size of the
@@ -82,12 +94,8 @@ list. Additionally, since the deque is start-time-ordered, once a User's session
 with session time less than the inactivity period time, all of the remaining
 open sessions can be skipped using a deque.rotate() to reset the order of the
 deque. This scales as _O_(_k_), where _k_ is the number of items rotated, which
-will be in the worst case _O_(_N_).
-
-The program is not memory bound, so in order to improve the overall performance
-of the program, creating a blocks over which to perform the sessionization would
-be advantageous. Threading using shared memory would also be an additional route
-to improving the overall performance.
+will be in the worst case _O_(_N_). It is obvious, however, that removing
+internal items from the deque adds a significant cost.
 
 ## Unit tests py.test
 Included in this repository are two different testing frameworks.
