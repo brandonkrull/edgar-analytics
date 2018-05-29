@@ -71,12 +71,12 @@ checking of all other open Sessions to see if any should be closed.
 Once the end of the file is reached, all open Sessions are updated and closed.
 
 ## Program Performance
-Running the log processing program on an ~250MB CSV file (~2.2M lines) takes
-approximately [] seconds, with a majority of the time spent on. The timings were
-performed on a Mid 2015 MacBook Pro with a 2.8GHz Intel Core i7 and 16gb DDR3
-memory.
+Running the log processing program on an 0.5M line CSV file (~56Mb) takes
+approximately 40 seconds, with a majority of the time spent on []. The timings
+were performed on a Mid 2015 MacBook Pro with a 2.8GHz Intel Core i7 and 16gb
+DDR3 memory.
 
-Left and right pop/append from a python deque is _O_(1) and is preferrable to
+Left and right pop/append from a python deque is _O_(1) and is preferable to
 internal list searches which scale as _O_(_N_), where _N_ is the size of the
 list. Additionally, since the deque is start-time-ordered, once a User's session
 with session time less than the inactivity period time, all of the remaining
