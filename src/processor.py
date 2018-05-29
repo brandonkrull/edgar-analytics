@@ -1,3 +1,5 @@
+import re
+from csv import DictReader, Error
 from collections import deque
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
@@ -157,14 +159,12 @@ class Processor(object):
 
         with open(self.output_file_name, 'a') as output_file:
             for record in raw_data:
-                # print '----New Record----'
                 user = User(record['ip'])
                 now = parse(record['date'] + ' ' + record['time'])
-                # print "It is now {}".format(now)
 
-                # deal with current user and whether or not they have an open session
+                # deal with current user
+                # -------------------
                 if user not in open_sessions:
-                    # print 'Adding user {} to open_sessions'.format(user.ip)
                     user.sess = Session(start=now, sleep=self.inactivity_time)
                     open_sessions.append(user)
                 else:
@@ -172,11 +172,11 @@ class Processor(object):
 
                     elapsed = sess._compute_session_elapsed(now)
                     if elapsed > self.inactivity_time:
-                        # the amount of time this session has elapsed means
-                        # the previously opened session should be closed
-                        # and a new session started
-
-                        # print 'User {} had open session, but it should be closed and replaced'.format(user.ip)
+                        """
+                        since elapsed > inactivity_time
+                        the previously opened session should be closed
+                        and a new session started
+                        """
                         sess.end = now
                         sess.close(user.ip, output_file)
                         open_sessions.remove(user)
@@ -185,15 +185,13 @@ class Processor(object):
                     else:
                         sess.updated = now
                         sess.count += 1
-
-                        # print 'User: {} has been updated to {}'.format(user.ip, sess)
+                # -------------------
 
                 # if time has passed, deal with all remaining open sessions
+                # -------------------
                 clock_elapsed = relativedelta(now, prev).seconds
-                # print "time elapsed: {}".format(clock_elapsed)
                 if clock_elapsed > 0:
                     number_of_open_sess = len(open_sessions)
-                    # print "Checking {} other open sessions".format(number_of_open_sess)
 
                     for i in range(number_of_open_sess):
                         u = open_sessions.popleft()
@@ -201,41 +199,32 @@ class Processor(object):
                         start_time = u.sess.start
 
                         elapsed = u.sess._compute_session_elapsed(now)
-                        # print u.ip + ' ' + str(u.sess)
-
-                        # print 'elapsed: {}, sleep: {}'.format(elapsed, self.inactivity_time)
                         if elapsed > self.inactivity_time:
-                            # print 'Closing {}'.format(u.ip)
                             u.sess.end = now
                             u.sess.close(u.ip, output_file)
                         else:
                             open_sessions.append(u)
-
-                        # all subsequent entries should have start times
-                        # that are later and need not be iterated through
-                        # so simply rotate my deck to put the oldest at the top
-                        if relativedelta(now, start_time).seconds < self.inactivity_time:
+                        """
+                        all subsequent entries should have start times
+                        that are later and need not be iterated through
+                        so simply rotate my deck to put the oldest at the top
+                        """
+                        if relativedelta(
+                                now,
+                                start_time).seconds < self.inactivity_time:
                             open_sessions.rotate(number_of_open_sess - i + 1)
                             break
+                # -------------------
 
                 prev = now
-
-                # print '\n'
             else:
-                # print 'File closed, proceeding to close remaining sessions'
-                # print 'Now is {}'.format(now)
-                # print open_sessions
-
                 """
                 Once end of the log is reached, close all remaining open sessions
                 """
 
                 while open_sessions:
                     u = open_sessions.popleft()
-                    # print u.ip + ' ' + str(u.sess)
 
-                    elapsed = u.sess._compute_session_elapsed(now)
-                    # print u.ip + ' elapsed {} '.format(elapsed) + str(u.sess)
                     if u.sess.start == now:
                         u.sess.end = now
                     elif u.sess.updated:
@@ -243,32 +232,62 @@ class Processor(object):
                     else:
                         u.sess.end = u.sess.start
 
-                    u.sess.end += relativedelta(seconds=self.inactivity_time+1)
+                    u.sess.end += relativedelta(
+                        seconds=self.inactivity_time + 1)
 
                     u.sess.close(u.ip, output_file)
 
 
 def get_value_indices(keys):
     """
-    truth contains the column names that we actually need
+    From a list of keys, find the indices of truth keys
     """
     truth = ['ip', 'date', 'time']
+    indices = {}
+    for k in truth:
+        try:
+            indices[k] = keys.index(k)
+        except ValueError:
+            raise ValueError(
+                'There is no "{}" field in the keys'.format(k.upper()))
 
-    return {k: keys.index(k) for k in keys if k in truth}
+    return indices
 
 
 def get_raw_log_data(fname):
+    """
+    Given a file_name, returns a list of dicts where
+    dict = {'ip': ip, 'date': date, 'time': time}
+    """
     data = []
+    regex = {
+        'ip': re.compile(r'[0-9]{3}.[0-9]{1,3}.[0-9]{1,3}.[a-z]{3}'),
+        'date': re.compile(r'[0-9]{4}-[0-1][0-9]-[0-3][0-9]'),
+        'time': re.compile(r'[0-2]{2}:[0-9]{2}:[0-9]{2}')
+    }
     try:
-        with open(fname) as f:
-            keys = f.readline().strip().split(',')
-            indices = get_value_indices(keys)
+        with open(fname, 'rb') as csvfile:
+            csvreader = DictReader(csvfile)
 
-            for line in f.readlines():
-                list_of_info = line.strip().split(',')
-                data.append(
-                    {k: list_of_info[v]
-                     for k, v in indices.iteritems()})
+            try:
+                for line in csvreader:
+                    print line
+                    interm = {}
+                    for k in ['ip', 'date', 'time']:
+                        if regex[k].match(line[k]):
+                            interm[k] = line[k]
+                        else:
+                            break
+
+                    if len(interm) < 3:
+                        print 'Incomplete data, skipping line'
+                        continue
+
+                    data.append(interm)
+            except Error as e:
+                print 'Error in file {}, line {}: {}'.format(
+                    fname, csvreader.line_num, e)
+
     except OSError:
         raise OSError('No file {} found'.format(fname))
 
