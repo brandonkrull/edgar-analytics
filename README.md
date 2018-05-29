@@ -75,7 +75,7 @@ Single-threaded timings were performed on a Mid 2015 MacBook Pro with a 2.8GHz
 Intel Core i7 and 16gb DDR3 memory. Running the log processing program on an
 0.5M line CSV file (~56Mb) takes approximately 40 seconds, with a majority of
 the time spent on checking if Sessions already exist in the deque. This could be
-improved with the use of a hashtable with significantly faster and lookup. After
+improved with the use of a hashtable with significantly faster lookup. After
 this, the next most expensive operations are converting the date and time
 strings to datetime objects for use in computing elapsed times, see Table below.
 
