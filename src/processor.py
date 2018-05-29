@@ -271,7 +271,6 @@ def get_raw_log_data(fname):
 
             try:
                 for line in csvreader:
-                    print line
                     interm = {}
                     for k in ['ip', 'date', 'time']:
                         if regex[k].match(line[k]):
@@ -280,7 +279,7 @@ def get_raw_log_data(fname):
                             break
 
                     if len(interm) < 3:
-                        print 'Incomplete data, skipping line'
+                        # print 'Incomplete data, skipping line'
                         continue
 
                     data.append(interm)
