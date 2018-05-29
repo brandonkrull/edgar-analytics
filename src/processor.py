@@ -71,6 +71,8 @@ class Session(object):
         3. Appending the user's session info to the output file
         """
         length = relativedelta(self.end, self.start).seconds - self.sleep
+        if length < 0:
+            length = relativedelta(self.updated, self.start).seconds + 1
         dt_open = self._format_dt_for_output(self.start)
         dt_close = self._format_dt_for_output(self.end, end=True)
 
