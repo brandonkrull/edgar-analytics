@@ -12,14 +12,14 @@ The task at hand is to determine (for each user) how many documents were
 accessed and how long the length of their document request session was for a
 given "stream" of data.
 
-A **single user session*** is defined to have started when the IP address first
+A **single user session** is defined to have started when the IP address first
 requests a document from the EDGAR system and continues as long as the same user
 continues to make requests. The session is over after a certain period of time
 has elapsed and the user makes no requests for documents.
 
 # Data Format
 ## Input
-Data is input as a CSV file containing at least the following fields:
+Log data is input as a CSV file containing at least the following fields:
 
 - `ip`: identifies the IP address of the device requesting the data. While the
   SEC anonymizes the last three digits, it uses a consistent formula that allows
@@ -30,6 +30,9 @@ Data is input as a CSV file containing at least the following fields:
 - `cik`: SEC Central Index Key
 - `accession`: SEC document accession number
 - `extention`: Value that helps determine the document being requested
+
+The inactivity time is input as a text file containing a single integer between
+0 and 86,400 (the number of seconds in a day).
 
 ## Output
 The output file with the information about each of the users' sessions should be
